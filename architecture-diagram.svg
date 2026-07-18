@@ -8,14 +8,14 @@
   <!-- User Browser -->
   <rect x="350" y="80" width="200" height="70" rx="10" fill="#2563eb"/>
   <text x="450" y="110" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="bold">User Browser</text>
-  <text x="450" y="132" text-anchor="middle" fill="#dbeafe" font-size="12">Opens http://3.27.88.15</text>
+  <text x="450" y="132" text-anchor="middle" fill="#dbeafe" font-size="12">Opens http://3.25.23.224</text>
 
   <!-- Arrow down -->
   <line x1="450" y1="150" x2="450" y2="195" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- AWS EC2 outer box -->
   <rect x="80" y="200" width="740" height="400" rx="14" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,4"/>
-  <text x="100" y="225" fill="#f59e0b" font-size="15" font-weight="bold">AWS EC2 Instance (Public IP: 3.27.88.15)</text>
+  <text x="100" y="225" fill="#f59e0b" font-size="15" font-weight="bold">AWS EC2 Instance (Public IP: 3.25.23.224)</text>
 
   <!-- Nginx container -->
   <rect x="150" y="250" width="600" height="130" rx="10" fill="#16a34a"/>
