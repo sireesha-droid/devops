@@ -2,7 +2,7 @@
 
 A containerized real-time chat application deployed with Docker, Nginx, and automated via GitHub Actions CI/CD.
 
-Live URL: http://3.27.88.15
+Live URL: http://3.25.23.224
 
 ## Project Overview
 
