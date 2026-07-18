@@ -1,53 +1,70 @@
-# DevOps Engineering Assignment: Real-Time Chat App
+# Real-Time WebSocket Chat App - DevOps Deployment
 
-Welcome! In this assignment, you are tasked with fixing a broken staging environment for our Real-Time Chat web application. 
+A containerized real-time chat application deployed with Docker, Nginx, and automated via GitHub Actions CI/CD.
 
-A junior developer recently attempted to containerize this application using Docker and NGINX, but the deployment is currently failing on multiple fronts. Your job is to debug their configuration files and get the application fully operational via Docker Compose.
+Live URL: http://3.27.88.15
 
-## System Architecture
+## Project Overview
 
-The application is built using two primary containers:
-1. **Backend (`backend`)**: A Python-based FastAPI server operating on Port 8000. It handles persistent, real-time WebSocket connections on the `/ws` endpoint.
-2. **Frontend Proxy (`nginx`)**: An NGINX container mapped to Port 80. It is responsible for serving the static files from the `frontend/` directory, while simultaneously intercepting and reverse-proxying all WebSocket upgrade requests down to the backend container.
+This project takes a pre-built FastAPI WebSocket chat backend and a static HTML frontend, and deploys them using a production-style setup: Docker containers, an Nginx reverse proxy, and a fully automated CI/CD pipeline on AWS EC2.
 
-### Directory Structure
-```text
-realtime-chat-app/
-├── app/
-│   ├── main.py              # FastAPI application server
-│   └── requirements.txt     # Python dependencies
-├── frontend/
-│   └── index.html           # Simple, styled single-page HTML client
-├── Dockerfile               # Instructions to build the Python backend image
-├── docker-compose.yml       # Composes both NGINX and Python Backend services
-└── nginx.conf               # Configuration for NGINX routing and WS proxy
-```
+## Architecture
 
-## Your Mission
+User Browser -> Public IP (AWS EC2, port 80) -> NGINX Container (reverse proxy) -> serves static frontend AND proxies /ws to -> FastAPI Backend Container (port 8000, WebSocket)
 
-If you run `docker-compose up -d --build` right now, the containers will start, but the application will not work. You need to debug and fix the following three critical issues:
+Two containers run on a shared Docker bridge network (chat-network):
 
-### 1. Fix the Docker Binding (Container Networking)
-The FastAPI backend container is refusing external connections—even from the NGINX container! 
-* **Hint:** Look at how the `uvicorn` command is binding its host in the `Dockerfile`. Inside a Docker container, binding to `localhost` or `127.0.0.1` makes the service unreachable to other containers on the Docker network.
+- nginx - listens on port 80, serves the static frontend from /frontend, and reverse-proxies all /ws traffic to the backend.
+- backend - a FastAPI app running with uvicorn, exposing port 8000 internally, handling WebSocket connections at /ws.
 
-### 2. Fix the Missing User Interface (Volume Mounts)
-If you navigate to `http://localhost` right now, you will likely see the default "Welcome to NGINX" page instead of the chat application.
-* **Hint:** Check `docker-compose.yml`. How is the `nginx` container supposed to get access to the static HTML files located in the local `frontend/` directory? 
+## How Docker Networking Works
 
-### 3. Fix the WebSocket Tunnel (Reverse Proxy Configuration)
-Once the UI is visible, the chat app will continuously say "Disconnected" because the WebSocket handshake is failing.
-* **Hint #1:** In `nginx.conf`, the `proxy_pass` is attempting to route to `localhost:8000`. Does `localhost` mean the same thing inside the NGINX container as it does on your laptop? How do containers communicate with each other in a Compose network?
-* **Hint #2:** NGINX requires explicit headers to convert standard HTTP traffic into a persistent WebSocket tunnel. Some of the required `Upgrade` headers appear to be missing or disabled.
+Both containers join a custom bridge network called chat-network, defined in docker-compose.yml. Docker Compose automatically gives each container a DNS entry matching its service name. This means the nginx container can reach the backend simply by using the hostname backend, e.g. http://backend:8000 - it does not need to know the backend container's actual IP address.
 
-## Deliverables
+## How Nginx Reverse Proxy Works
 
-Submit your finalized, corrected codebase. We will evaluate your submission by executing:
+Nginx listens on port 80, the only port exposed to the internet, and does two jobs:
 
-```bash
-docker-compose up -d --build
-```
+1. Serves static files - the location / block serves index.html and other frontend assets from /usr/share/nginx/html, which is volume-mounted from the local ./frontend folder.
+2. Reverse-proxies WebSocket traffic - the location /ws block forwards any request to /ws to the backend container at http://backend:8000/ws.
 
-If everything is configured correctly, we should instantly see the UI and be able to open multiple browser tabs at `http://localhost` to chat back and forth in real-time. Good luck!
-test change for CI/CD verification
-test change for CI/CD verification
+## How WebSocket Works Through Nginx
+
+WebSocket connections start as a normal HTTP request that asks to be upgraded to a persistent WebSocket connection. For Nginx to allow this upgrade instead of treating it as a normal HTTP request, it must forward two specific headers to the backend: Upgrade and Connection: upgrade. Without these headers, the handshake fails silently and the frontend stays stuck on Disconnected.
+
+## How CI/CD Pipeline Works
+
+A GitHub Actions workflow (.github/workflows/deploy.yml) is triggered on every push to the main branch. It:
+
+1. Connects to the EC2 server over SSH using credentials stored as encrypted GitHub Secrets (EC2_HOST, EC2_SSH_KEY).
+2. Runs git pull origin main on the server to fetch the latest code.
+3. Runs docker compose up -d --build to rebuild and restart the containers with the new code.
+
+This means any code change pushed to GitHub is automatically live on the server within seconds, with no manual server login required.
+
+## Issues Found and How They Were Fixed
+
+1. Backend bound to 127.0.0.1 instead of 0.0.0.0 - In Dockerfile, uvicorn was started with --host 127.0.0.1, which only accepts connections from inside its own container. Fix: changed to --host 0.0.0.0.
+
+2. Frontend volume mount was commented out - In docker-compose.yml, the line mounting ./frontend into the nginx container's web root was commented out. Fix: uncommented it.
+
+3. Nginx WebSocket proxy misconfigured - proxy_pass pointed to localhost:8000 instead of backend:8000, and the Upgrade/Connection headers were commented out. Fix: corrected proxy_pass and enabled the headers.
+
+An explicit chat-network bridge network was also added to docker-compose.yml for clearer container networking.
+
+## Deployment Steps
+
+git clone https://github.com/sireesha-droid/devops.git
+cd devops
+docker compose up -d --build
+
+Then visit http://<server-ip> in a browser.
+
+## Tech Stack
+
+Backend: FastAPI + Uvicorn (Python)
+Frontend: Static HTML/JS
+Reverse Proxy: Nginx (Alpine)
+Containerization: Docker + Docker Compose
+CI/CD: GitHub Actions
+Cloud: AWS EC2 (Free Tier)
